@@ -1,0 +1,32 @@
+dist:     trusty
+sudo:     false
+language: sh
+
+matrix:
+  include:
+    - os: linux
+      env: CABALVER=1.24 GHCVER=8.0.1
+      addons: { apt: { packages: [cabal-install-1.24, ghc-8.0.1], sources: [hvr-ghc] } }
+    - os: osx
+
+cache:
+  directories:
+    - $HOME/.cabal
+    - $HOME/.ghc
+    - $TRAVIS_BUILD_DIR/dist
+    - $TRAVIS_BUILD_DIR/snap-framework
+
+before_install:
+  - export $(./.travis-$TRAVIS_OS_NAME.sh export)
+  - ./.travis-$TRAVIS_OS_NAME.sh before_install
+  - cabal --version
+  - ghc --version
+  - travis_retry cabal update
+  - travis_retry cabal install alex happy
+  - travis_retry cabal install --only-dependencies --enable-tests
+
+install:
+  - cabal configure --enable-tests --ghc-option=-Wall
+  - cabal build
+  - cabal test
+  - cabal check

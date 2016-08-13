@@ -56,7 +56,7 @@ startSertop cmd = do
   --    Right () -> return ()
   liftIO $ do
     handles@(hi, _, _, _) <- runCommandWithoutBuffering cmd
-    hWrite hi "(Control (LibAdd (\"PeaCoq\") \"../PeaCoq/peacoqtop/plugin\" True))"
+    hWrite hi "(Control (LibAdd (\"PeaCoq\") \"./peacoq-plugin\" True))"
     hWrite hi "(Control (StmAdd () \"From PeaCoq Require Import PeaCoq.\"))"
     return handles
 
