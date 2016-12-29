@@ -1,7 +1,7 @@
 { mkDerivation, adjunctions, aeson, base, bytestring, containers
 , directory, hslogger, lens, MissingH, monad-loops, mtl, network
 , process, random, snap, snap-core, snap-server, stdenv, text, time
-, transformers, unordered-containers, utf8-string, zlib, zlibStatic
+, transformers, unordered-containers, utf8-string, zlib
 }:
 mkDerivation {
   pname = "peacoq-server";
@@ -13,12 +13,10 @@ mkDerivation {
     adjunctions aeson base bytestring containers directory hslogger
     lens MissingH monad-loops mtl network process random snap snap-core
     snap-server text time transformers unordered-containers utf8-string
-    zlib zlibStatic
   ];
-  librarySystemDepends = [ zlib zlibStatic ];
-  executableHaskellDepends = [ base zlib zlibStatic ];
-  executableSystemDepends = [ zlib zlibStatic ];
-  testHaskellDepends = [ base zlib zlibStatic ];
+  librarySystemDepends = [ zlib ];
+  executableHaskellDepends = [ base ];
+  testHaskellDepends = [ base ];
   description = "Server to bridge a web interface to coqtop";
   license = stdenv.lib.licenses.mit;
 }
