@@ -69,7 +69,7 @@ Test-Suite peacoq-server-test
   main-is:          Main.hs
   build-depends:
     base                      >= 4.8   && < 4.10,
-    HUnit                     >= 1.3   && < 1.7,
+    -- HUnit                     >= 1.3   && < 1.7,
     -- monad-loops               >= 0.4   && < 0.5,
     -- mtl                       >= 2.2   && < 2.3,
     -- process                   >= 1.2   && < 1.3,

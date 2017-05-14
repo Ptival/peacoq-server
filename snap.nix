@@ -33,6 +33,7 @@ mkDerivation {
     test-framework-smallcheck text time transformers transformers-base
     unordered-containers xmlhtml
   ];
+  jailbreak = true;
   homepage = "http://snapframework.com/";
   description = "Top-level package for the Snap Web Framework";
   license = stdenv.lib.licenses.bsd3;
