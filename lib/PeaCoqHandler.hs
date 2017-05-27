@@ -7,6 +7,7 @@ import           Control.Monad.Loops                 (whileM)
 import           Control.Monad.Representable.Reader  (ask)
 import           Data.Aeson
 import qualified Data.ByteString.UTF8                as BSU
+import qualified Data.ByteString.Lazy                as BSL
 import           Data.IORef
 import qualified Data.IntMap                         as IM
 import qualified Data.Text                           as T
@@ -128,24 +129,6 @@ getSessionKey = with lSession $ do
     keyField :: T.Text
     keyField = "key"
 
-withParam :: (FromJSON i, MonadSnap m) => (i -> m o) -> m (Maybe o)
-withParam k = do
-  let paramName = "data"
-  mp <- getParam paramName
-  case mp of
-    Nothing -> do
-      liftIO . putStrLn $
-        "Failed to retrieve parameter: " ++ BSU.toString paramName
-      return Nothing
-    Just bs ->
-      -- 'decode' only succeeds on lists and objects, use an artificial list...
-      case decodeStrict (BSU.fromString ("[" ++ BSU.toString bs ++ "]")) of
-      Just [i] -> Just <$> k i
-      _ -> do
-        liftIO . putStrLn $
-          "Failed to JSON-parse the request parameter: " ++ BSU.toString bs
-        return Nothing
-
 hWrite :: Handle -> String -> IO ()
 hWrite hi input = do
   putStrLn $ input
@@ -180,14 +163,20 @@ hRead ho = do
 handlerCoqtop :: PeaCoqHandler ()
 handlerCoqtop = do
   SessionState _ (hi, ho, _, _) <- getSessionState
-  void . withParam $ \ input -> do
-    res <- liftIO $ do
-      hWrite hi input
-      -- putStrLn "Waiting for output"
-      inputAvailable <- hWaitForInput ho (-1)
-      -- putStrLn $ "Wait is over: " ++ show inputAvailable
-      if inputAvailable then hRead ho else return []
-    writeJSON res
+  r <- getRequest
+  case rqContentLength r of
+    Nothing -> return ()
+    Just bodyLength -> do
+      body <- readRequestBody bodyLength
+      let input = BSU.toString (BSL.toStrict body)
+      liftIO $ putStrLn $ "Read input: " ++ input
+      res <- liftIO $ do
+        hWrite hi input
+        -- putStrLn "Waiting for output"
+        inputAvailable <- hWaitForInput ho (-1)
+        -- putStrLn $ "Wait is over: " ++ show inputAvailable
+        if inputAvailable then hRead ho else return []
+      writeJSON res
 
 -- no input, but check for output
 handlerPing :: PeaCoqHandler ()

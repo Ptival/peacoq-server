@@ -47,20 +47,21 @@ disableCaching h = do
   modifyResponse $ setHeader "Expires" "0"
   h
 
-peacoqRoutes :: [(ByteString, PeaCoqHandler ())]
-peacoqRoutes =
+peacoqRoutes :: String -> [(ByteString, PeaCoqHandler ())]
+peacoqRoutes configServe =
   [ ("coqtop", handlerCoqtop)
   , ("ping", handlerPing) -- we need this because we use HTTP
-  , ("/", disableCaching $ serveDirectoryWith myDirConfig "web/")
+  , ("/", disableCaching $ serveDirectoryWith myDirConfig configServe)
   ]
 
 {- End of configuration -}
 
 data PeaCoqConfig =
   PeaCoqConfig
-  { configUserId :: String
+  { configUserId  :: String
   , configLogPath :: FilePath
-  , configCoqtop :: String
+  , configCoqtop  :: String
+  , configServe   :: String
   }
   deriving (Read, Show)
 
@@ -87,16 +88,18 @@ serve = do
   homeDir <- getHomeDirectory
   fileString <- readFile (homeDir ++ "/" ++ configFile)
   let configString = unwords . filter (not <$> startswith "--") $ lines fileString
-  let config@(PeaCoqConfig { configUserId = u
+  let config@(PeaCoqConfig { configUserId  = u
                            , configLogPath = l
-                           , configCoqtop = coqtop }) = read configString
+                           , configCoqtop  = coqtop
+                           , configServe   = serveDir
+                           }) = read configString
   handler <- fileHandler
             (l ++ "/" ++ u ++ "-" ++ nowString ++ ".log")
             loggingPriority
   let format = simpleLogFormatter "[$time] $msg"
   let fHandler = setFormatter handler format
   updateGlobalLogger rootLoggerName (setLevel loggingPriority . addHandler fHandler)
-  serveSnaplet (serverConfig config nowString) (peaCoqSnaplet coqtop)
+  serveSnaplet (serverConfig config nowString) (peaCoqSnaplet coqtop serveDir)
 
 sessionTimeoutSeconds :: Int
 sessionTimeoutSeconds = 60 * sessionTimeoutMinutes
@@ -144,14 +147,14 @@ hashInit hash =
   makeSnaplet "hash" "Holds the current git commit hash" Nothing $ do
     return hash
 
-peaCoqSnaplet :: String -> SnapletInit PeaCoq PeaCoq
-peaCoqSnaplet coqtop = makeSnaplet "PeaCoq" "PeaCoq" Nothing $ do
+peaCoqSnaplet :: String -> String -> SnapletInit PeaCoq PeaCoq
+peaCoqSnaplet coqtop configServe = makeSnaplet "PeaCoq" "PeaCoq" Nothing $ do
   hash <- liftIO $ getGitCommitHash
   globRef <- liftIO $ newPeaCoqGlobalState coqtop hash
   g <- nestSnaplet "globRef" lGlobRef $ globRefInit globRef
   h <- nestSnaplet "hash" lHash $ hashInit hash
   s <- nestSnaplet "session" lSession cookieSessionManager
-  addRoutes peacoqRoutes
+  addRoutes $ peacoqRoutes configServe
   return $ PeaCoq g h s
   where
     cookieSessionManager :: SnapletInit PeaCoq SessionManager
