@@ -1,1 +1,2 @@
-/snap-framework/
+*.swp
+/.stack-work
