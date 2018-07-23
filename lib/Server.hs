@@ -1,3 +1,4 @@
+{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Server where
@@ -48,22 +49,30 @@ disableCaching h = do
   h
 
 peacoqRoutes :: String -> [(ByteString, PeaCoqHandler ())]
-peacoqRoutes configServe =
+peacoqRoutes dirToServe =
   [ ("coqtop", handlerCoqtop)
   , ("ping", handlerPing) -- we need this because we use HTTP
-  , ("/", disableCaching $ serveDirectoryWith myDirConfig configServe)
+  , ("/", disableCaching $ serveDirectoryWith myDirConfig dirToServe)
   ]
 
 {- End of configuration -}
 
 data PeaCoqConfig =
   PeaCoqConfig
-  { configUserId  :: String
-  , configLogPath :: FilePath
-  , configCoqtop  :: String
-  , configServe   :: String
+  { configUserId     :: String
+  , configLogPath    :: FilePath
+  , configSertop     :: String
+  , configDirToServe :: String
   }
   deriving (Read, Show)
+
+defaultPeaCoqConfig :: PeaCoqConfig
+defaultPeaCoqConfig = PeaCoqConfig
+  { configUserId     = "peacoq"
+  , configLogPath    = "/tmp/"
+  , configSertop     = "coq-serapi/sertop.native"
+  , configDirToServe = "web/"
+  }
 
 serverConfig :: MonadSnap m => PeaCoqConfig -> String -> Config m a
 serverConfig (PeaCoqConfig { configUserId = u, configLogPath = l }) nowString =
@@ -86,20 +95,26 @@ serve = do
   now <- getZonedTime
   let nowString = formatTime defaultTimeLocale "%F-%H-%M-%S" now
   homeDir <- getHomeDirectory
-  fileString <- readFile (homeDir ++ "/" ++ configFile)
+  let configFilePath = concat [ homeDir, "/", configFile ]
+  configExists <- doesFileExist configFilePath
+  if not configExists
+    then do
+    error $ "File not found: " ++ configFilePath ++ "\nExample:\n" ++ show defaultPeaCoqConfig
+    else return ()
+  fileString <- readFile configFilePath
   let configString = unwords . filter (not <$> startswith "--") $ lines fileString
-  let config@(PeaCoqConfig { configUserId  = u
-                           , configLogPath = l
-                           , configCoqtop  = coqtop
-                           , configServe   = serveDir
+  let config@(PeaCoqConfig { configUserId
+                           , configLogPath
+                           , configSertop
+                           , configDirToServe
                            }) = read configString
   handler <- fileHandler
-            (l ++ "/" ++ u ++ "-" ++ nowString ++ ".log")
+            (configLogPath ++ "/" ++ configUserId ++ "-" ++ nowString ++ ".log")
             loggingPriority
   let format = simpleLogFormatter "[$time] $msg"
   let fHandler = setFormatter handler format
   updateGlobalLogger rootLoggerName (setLevel loggingPriority . addHandler fHandler)
-  serveSnaplet (serverConfig config nowString) (peaCoqSnaplet coqtop serveDir)
+  serveSnaplet (serverConfig config nowString) (peaCoqSnaplet configSertop configDirToServe)
 
 sessionTimeoutSeconds :: Int
 sessionTimeoutSeconds = 60 * sessionTimeoutMinutes
@@ -148,13 +163,13 @@ hashInit hash =
     return hash
 
 peaCoqSnaplet :: String -> String -> SnapletInit PeaCoq PeaCoq
-peaCoqSnaplet coqtop configServe = makeSnaplet "PeaCoq" "PeaCoq" Nothing $ do
+peaCoqSnaplet coqtop dirToServe = makeSnaplet "PeaCoq" "PeaCoq" Nothing $ do
   hash <- liftIO $ getGitCommitHash
   globRef <- liftIO $ newPeaCoqGlobalState coqtop hash
   g <- nestSnaplet "globRef" lGlobRef $ globRefInit globRef
   h <- nestSnaplet "hash" lHash $ hashInit hash
   s <- nestSnaplet "session" lSession cookieSessionManager
-  addRoutes $ peacoqRoutes configServe
+  addRoutes $ peacoqRoutes dirToServe
   return $ PeaCoq g h s
   where
     cookieSessionManager :: SnapletInit PeaCoq SessionManager

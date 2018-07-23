@@ -5,7 +5,6 @@ module PeaCoqHandler where
 import           Control.Monad.Except
 import           Control.Monad.Loops                 (whileM)
 import           Control.Monad.Representable.Reader  (ask)
-import           Data.Aeson
 import qualified Data.ByteString.UTF8                as BSU
 import qualified Data.ByteString.Lazy                as BSL
 import           Data.IORef
