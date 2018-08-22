@@ -69,8 +69,8 @@ data PeaCoqConfig =
 defaultPeaCoqConfig :: PeaCoqConfig
 defaultPeaCoqConfig = PeaCoqConfig
   { configUserId     = "peacoq"
-  , configLogPath    = "/tmp/"
-  , configSertop     = "coq-serapi/sertop.native"
+  , configLogPath    = "/tmp"
+  , configSertop     = "coq-serapi/sertop.native --printer=sertop"
   , configDirToServe = "web/"
   }
 
